@@ -1,0 +1,5 @@
+{
+  "name": "MilkDrop Alchemy",
+  "description": "A tool to convert legacy ProjectM / MilkDrop .milk preset files into modern, flexible formats like GLSL shaders, JSON metadata, and video loops using AI.",
+  "requestFramePermissions": []
+}

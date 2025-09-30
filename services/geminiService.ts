@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 
 if (!process.env.API_KEY) {
@@ -8,7 +7,22 @@ if (!process.env.API_KEY) {
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export async function generateGLSL(presetName: string): Promise<string> {
-    const prompt = `You are a MilkDrop to GLSL conversion expert. Given the MilkDrop preset name "${presetName}", generate a plausible GLSL fragment shader (.frag) that captures its visual essence. The shader should be well-commented and ready to use. Include standard uniforms like 'uniform float time;', 'uniform vec2 resolution;', and 'uniform sampler2D tex_prev_frame;'. The output must be only the GLSL code block, without any explanation or markdown formatting. The visual should be abstract, colorful, and dynamic.`;
+    const prompt = `You are a MilkDrop to GLSL conversion expert specializing in audio-reactive shaders. Given the MilkDrop preset name "${presetName}", generate a plausible GLSL fragment shader (.frag) that captures its visual essence and reacts to audio input.
+
+The shader MUST include the following uniforms for audio reactivity:
+- uniform float audio_level; // Overall audio volume (0.0 to 1.0)
+- uniform vec3 audio_spectrum[256]; // Audio frequency data (x=bass, y=mids, z=treble)
+
+The shader should also include standard uniforms:
+- uniform float time;
+- uniform vec2 resolution;
+- uniform sampler2D tex_prev_frame;
+
+The generated GLSL code must:
+1. Utilize 'audio_level' and 'audio_spectrum' to create dynamic, audio-reactive visual effects (e.g., pulsing, color changes, movement based on bass/treble).
+2. Be well-commented, with specific comments explaining how the audio uniforms are being used and how a developer could further integrate them.
+3. Be abstract, colorful, and dynamic.
+4. The output must be ONLY the GLSL code block, without any additional explanation or markdown formatting.`;
 
     try {
         const response = await ai.models.generateContent({

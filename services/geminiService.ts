@@ -55,27 +55,3 @@ export async function generateJSON(presetName: string, author: string): Promise<
         throw new Error("Failed to generate JSON metadata.");
     }
 }
-
-export async function generateImagePreview(presetName: string, type: 'video' | 'webp'): Promise<string> {
-    const prompt = type === 'video' 
-        ? `Generate a high-quality, visually stunning image that represents a MilkDrop music visualization for a preset called "${presetName}". The image should be abstract, colorful, psychedelic, and dynamic, capturing the essence of audio-reactive visuals. Focus on flowing colors, geometric patterns, and a sense of motion. A dark background is preferred.`
-        : `Generate a simple, abstract, looping animated visual that could be a WebP or GIF. The style should be inspired by MilkDrop visualizations for a preset named "${presetName}". It should be visually interesting but lightweight. A single, clear frame representing the animation is sufficient.`;
-
-    try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt,
-            config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/jpeg',
-                aspectRatio: '16:9',
-            },
-        });
-        
-        const base64ImageBytes = response.generatedImages[0].image.imageBytes;
-        return `data:image/jpeg;base64,${base64ImageBytes}`;
-    } catch (error) {
-        console.error(`Error generating ${type} preview:`, error);
-        throw new Error(`Failed to generate ${type} preview.`);
-    }
-}

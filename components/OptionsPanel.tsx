@@ -16,8 +16,6 @@ interface OptionConfig {
 const optionConfigs: OptionConfig[] = [
     { key: 'glsl', label: 'GLSL Shader (.frag)', description: 'For real-time rendering pipelines.' },
     { key: 'json', label: 'JSON Metadata (.json)', description: 'Preset name, author, and parameters.' },
-    { key: 'video', label: 'Video Loop (.mp4)', description: 'High-quality loop for VJing or video.' },
-    { key: 'webp', label: 'Lightweight Asset (.webp)', description: 'Small preview for thumbnails or overlays.' },
 ];
 
 export const OptionsPanel: React.FC<OptionsPanelProps> = ({ options, setOptions }) => {

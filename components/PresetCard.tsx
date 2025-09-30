@@ -1,12 +1,10 @@
 
 import React, { useState } from 'react';
-import { ConversionResult, OutputFormat } from '../types';
+import { ConversionResult } from '../types';
 
 interface PresetCardProps {
     result: ConversionResult;
 }
-
-type Tab = 'preview' | 'glsl' | 'json';
 
 const downloadFile = (content: string, filename: string, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType });
@@ -34,23 +32,26 @@ const Loader: React.FC = () => (
 
 
 export const PresetCard: React.FC<PresetCardProps> = ({ result }) => {
-    const [activeTab, setActiveTab] = useState<Tab>('preview');
+    type Tab = 'glsl' | 'json';
+    
+    const getInitialTab = (): Tab | null => {
+        if (result.glsl !== undefined) return 'glsl';
+        if (result.json !== undefined) return 'json';
+        return null;
+    };
+    
+    const [activeTab, setActiveTab] = useState<Tab | null>(getInitialTab());
 
     const renderContent = () => {
+        if (!activeTab) return <Loader />;
+
         switch (activeTab) {
-            case 'preview':
-                const imageUrl = result.videoUrl || result.webpUrl;
-                return imageUrl ? (
-                     <img src={imageUrl} alt={`${result.presetName} preview`} className="w-full h-auto object-cover rounded-b-md" />
-                ) : (
-                    <Loader />
-                );
             case 'glsl':
                 return result.glsl ? <CodeViewer code={result.glsl} language="glsl" /> : <Loader />;
             case 'json':
                 return result.json ? <CodeViewer code={result.json} language="json" /> : <Loader />;
             default:
-                return null;
+                return <Loader />;
         }
     };
     
@@ -74,14 +75,11 @@ export const PresetCard: React.FC<PresetCardProps> = ({ result }) => {
                 <div className="flex gap-2">
                     {result.glsl && <button onClick={() => downloadFile(result.glsl!, `${result.presetName}.frag`, 'text/plain')} className="text-xs bg-cyan-600 hover:bg-cyan-500 px-2 py-1 rounded">.frag</button>}
                     {result.json && <button onClick={() => downloadFile(result.json!, `${result.presetName}.json`, 'application/json')} className="text-xs bg-purple-600 hover:bg-purple-500 px-2 py-1 rounded">.json</button>}
-                    {result.videoUrl && <a href={result.videoUrl} download={`${result.presetName}.jpeg`} className="text-xs bg-pink-600 hover:bg-pink-500 px-2 py-1 rounded">.mp4*</a>}
-                    {result.webpUrl && <a href={result.webpUrl} download={`${result.presetName}.jpeg`} className="text-xs bg-green-600 hover:bg-green-500 px-2 py-1 rounded">.webp*</a>}
                 </div>
             </div>
             {result.error && <div className="p-4 bg-red-800 text-white text-sm">{result.error}</div>}
             
             <div className="flex bg-slate-700/50">
-                 {(result.videoUrl || result.webpUrl) && <TabButton tabId="preview">Preview</TabButton>}
                  {result.glsl !== undefined && <TabButton tabId="glsl">GLSL</TabButton>}
                  {result.json !== undefined && <TabButton tabId="json">JSON</TabButton>}
             </div>
@@ -89,7 +87,6 @@ export const PresetCard: React.FC<PresetCardProps> = ({ result }) => {
             <div className="p-1 bg-slate-700/50">
                 {renderContent()}
             </div>
-             <p className="text-right text-xs text-slate-500 p-2">*Video/WebP downloads are representative JPEGs.</p>
         </div>
     );
 };

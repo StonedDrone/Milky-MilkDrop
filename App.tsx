@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { ConversionOptions, ConversionResult, PresetFile, AppStatus } from './types';
-import { generateGLSL, generateJSON, generateImagePreview } from './services/geminiService';
+import { generateGLSL, generateJSON } from './services/geminiService';
 import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
 import { OptionsPanel } from './components/OptionsPanel';
@@ -13,8 +13,6 @@ const App: React.FC = () => {
     const [conversionOptions, setConversionOptions] = useState<ConversionOptions>({
         glsl: true,
         json: true,
-        video: true,
-        webp: false,
     });
     const [status, setStatus] = useState<AppStatus>('idle');
     const [results, setResults] = useState<ConversionResult[]>([]);
@@ -52,12 +50,6 @@ const App: React.FC = () => {
                 if (conversionOptions.json) {
                     promises.push(generateJSON(presetName, "AI Alchemist").then(json => ({ type: 'json', data: json })));
                 }
-                if (conversionOptions.video) {
-                    promises.push(generateImagePreview(presetName, "video").then(img => ({ type: 'video', data: img })));
-                }
-                if (conversionOptions.webp) {
-                     promises.push(generateImagePreview(presetName, "webp").then(img => ({ type: 'webp', data: img })));
-                }
 
                 const settledPromises = await Promise.allSettled(promises);
                 
@@ -69,8 +61,6 @@ const App: React.FC = () => {
                                 const { type, data } = p.value;
                                 if (type === 'glsl') updatedResult.glsl = data;
                                 if (type === 'json') updatedResult.json = data;
-                                if (type === 'video') updatedResult.videoUrl = data;
-                                if (type === 'webp') updatedResult.webpUrl = data;
                             } else {
                                 updatedResult.error = `Error generating asset: ${p.reason}`;
                             }
@@ -96,21 +86,6 @@ const App: React.FC = () => {
 
         const zip = new JSZip();
 
-        const dataURLtoBlob = (dataurl: string): Blob | null => {
-            const arr = dataurl.split(',');
-            if (arr.length < 2) return null;
-            const mimeMatch = arr[0].match(/:(.*?);/);
-            if (!mimeMatch) return null;
-            const mime = mimeMatch[1];
-            const bstr = atob(arr[1]);
-            let n = bstr.length;
-            const u8arr = new Uint8Array(n);
-            while (n--) {
-                u8arr[n] = bstr.charCodeAt(n);
-            }
-            return new Blob([u8arr], { type: mime });
-        };
-
         for (const result of results) {
             if (result.error) continue;
 
@@ -122,14 +97,6 @@ const App: React.FC = () => {
             }
             if (result.json) {
                 folder.file(`${result.presetName}.json`, result.json);
-            }
-            if (result.videoUrl) {
-                const blob = dataURLtoBlob(result.videoUrl);
-                if (blob) folder.file(`${result.presetName}_video.jpeg`, blob);
-            }
-            if (result.webpUrl) {
-                const blob = dataURLtoBlob(result.webpUrl);
-                if (blob) folder.file(`${result.presetName}_webp.jpeg`, blob);
             }
         }
 
@@ -182,7 +149,7 @@ const App: React.FC = () => {
                         >
                             {status === 'converting' ? 'Summoning Visuals...' : 'Start Alchemy'}
                         </button>
-                         {status === 'done' && results.some(r => !r.error && (r.glsl || r.json || r.videoUrl || r.webpUrl)) && (
+                         {status === 'done' && results.some(r => !r.error && (r.glsl || r.json)) && (
                             <button
                                 onClick={handleDownloadAll}
                                 className="font-display text-xl font-bold px-8 py-3 rounded-md transition-all duration-300 ease-in-out

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { ConversionResult } from '../types';
 
 interface PresetCardProps {
@@ -19,7 +18,7 @@ const downloadFile = (content: string, filename: string, mimeType: string) => {
 };
 
 const CodeViewer: React.FC<{ code: string; language: string }> = ({ code, language }) => (
-    <pre className="bg-slate-900/70 p-4 rounded-b-md text-sm text-slate-200 overflow-x-auto max-h-80">
+    <pre className="bg-slate-900/70 p-4 rounded-b-md text-sm text-slate-200 overflow-x-auto max-h-96">
         <code className={`language-${language}`}>{code}</code>
     </pre>
 );
@@ -32,56 +31,30 @@ const Loader: React.FC = () => (
 
 
 export const PresetCard: React.FC<PresetCardProps> = ({ result }) => {
-    type Tab = 'glsl' | 'json';
-    
-    const getInitialTab = (): Tab | null => {
-        if (result.glsl !== undefined) return 'glsl';
-        if (result.json !== undefined) return 'json';
-        return null;
-    };
-    
-    const [activeTab, setActiveTab] = useState<Tab | null>(getInitialTab());
-
     const renderContent = () => {
-        if (!activeTab) return <Loader />;
-
-        switch (activeTab) {
-            case 'glsl':
-                return result.glsl ? <CodeViewer code={result.glsl} language="glsl" /> : <Loader />;
-            case 'json':
-                return result.json ? <CodeViewer code={result.json} language="json" /> : <Loader />;
-            default:
-                return <Loader />;
+        if (result.error) {
+            return <div className="p-4 bg-red-800 text-white text-sm">{result.error}</div>
         }
+        if (result.json) {
+            return <CodeViewer code={result.json} language="json" />;
+        }
+        return <Loader />;
     };
-    
-    const TabButton: React.FC<{ tabId: Tab, children: React.ReactNode }> = ({ tabId, children }) => (
-        <button
-            onClick={() => setActiveTab(tabId)}
-            className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-                activeTab === tabId
-                    ? 'bg-brand-purple text-white'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-            }`}
-        >
-            {children}
-        </button>
-    );
 
     return (
         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden shadow-lg shadow-black/30">
             <div className="p-4 bg-slate-900 flex justify-between items-center">
                 <h3 className="font-display font-bold text-lg text-brand-cyan truncate">{result.presetName}</h3>
-                <div className="flex gap-2">
-                    {result.glsl && <button onClick={() => downloadFile(result.glsl!, `${result.presetName}.frag`, 'text/plain')} className="text-xs bg-cyan-600 hover:bg-cyan-500 px-2 py-1 rounded">.frag</button>}
-                    {result.json && <button onClick={() => downloadFile(result.json!, `${result.presetName}.json`, 'application/json')} className="text-xs bg-purple-600 hover:bg-purple-500 px-2 py-1 rounded">.json</button>}
+                <div>
+                    {result.json && (
+                        <button 
+                            onClick={() => downloadFile(result.json!, `${result.presetName}.json`, 'application/json')} 
+                            className="text-sm bg-purple-600 hover:bg-purple-500 px-3 py-1.5 rounded font-bold"
+                        >
+                            Download .json
+                        </button>
+                    )}
                 </div>
-            </div>
-            {result.error && <div className="p-4 bg-red-800 text-white text-sm">{result.error}</div>}
-            
-            <div className="flex bg-slate-700/50">
-                 {result.glsl !== undefined && <TabButton tabId="glsl">GLSL</TabButton>}
-                 {result.json !== undefined && <TabButton tabId="json">JSON</TabButton>}
             </div>
             
             <div className="p-1 bg-slate-700/50">

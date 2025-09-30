@@ -6,7 +6,7 @@ if (!process.env.API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export async function generateGLSL(presetName: string): Promise<string> {
+async function generateGLSL(presetName: string): Promise<string> {
     const prompt = `You are a MilkDrop to GLSL conversion expert specializing in audio-reactive shaders. Given the MilkDrop preset name "${presetName}", generate a plausible GLSL fragment shader (.frag) that captures its visual essence and reacts to audio input.
 
 The shader MUST include the following uniforms for audio reactivity:
@@ -36,8 +36,21 @@ The generated GLSL code must:
     }
 }
 
-export async function generateJSON(presetName: string, author: string): Promise<string> {
-    const prompt = `You are a metadata generator. For a MilkDrop preset named "${presetName}" by "${author}", create a JSON object containing its metadata. The JSON should include "presetName", "author", and a "parameters" object with at least 5 plausible-looking parameters (like "decay", "gamma", "wave_speed", "blur_amount", "hue_shift") and their corresponding float values between 0.0 and 1.0. The output must be only the raw JSON string, without any surrounding markdown.`;
+async function generateJSON(presetName: string, author: string, glslCode: string): Promise<string> {
+    const prompt = `You are a metadata generator. For a MilkDrop preset named "${presetName}" by "${author}", create a JSON object containing its metadata.
+
+The JSON object MUST have the following structure:
+- "presetName": A string for the name of the preset.
+- "author": A string for the author's name.
+- "shader": A string containing the GLSL code.
+- "parameters": An object with at least 5 plausible-looking parameters (e.g., "decay", "gamma", "wave_speed") and their float values between 0.0 and 1.0.
+
+Here is the GLSL code to embed in the "shader" field:
+\`\`\`glsl
+${glslCode}
+\`\`\`
+
+The final output must be only the raw, minified JSON string, without any surrounding markdown, comments, or newlines.`;
     
     try {
         const response = await ai.models.generateContent({
@@ -47,11 +60,21 @@ export async function generateJSON(presetName: string, author: string): Promise<
                 responseMimeType: "application/json",
             }
         });
-        // Let's ensure the response is a clean JSON string, even if Gemini adds ```json
         const cleanText = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.stringify(JSON.parse(cleanText), null, 2);
+        const parsed = JSON.parse(cleanText);
+        
+        // Ensure the GLSL code is properly escaped within the JSON string
+        parsed.shader = glslCode;
+
+        return JSON.stringify(parsed, null, 2);
     } catch (error) {
         console.error("Error generating JSON:", error);
         throw new Error("Failed to generate JSON metadata.");
     }
+}
+
+export async function generateAssets(presetName: string, author: string): Promise<string> {
+    const glslCode = await generateGLSL(presetName);
+    const jsonOutput = await generateJSON(presetName, author, glslCode);
+    return jsonOutput;
 }

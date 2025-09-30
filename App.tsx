@@ -1,19 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { ConversionOptions, ConversionResult, PresetFile, AppStatus } from './types';
-import { generateGLSL, generateJSON } from './services/geminiService';
+import { ConversionResult, PresetFile, AppStatus } from './types';
+import { generateAssets } from './services/geminiService';
 import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
-import { OptionsPanel } from './components/OptionsPanel';
 import { ResultsDisplay } from './components/ResultsDisplay';
 
 declare var JSZip: any;
 
 const App: React.FC = () => {
     const [selectedFiles, setSelectedFiles] = useState<PresetFile[]>([]);
-    const [conversionOptions, setConversionOptions] = useState<ConversionOptions>({
-        glsl: true,
-        json: true,
-    });
     const [status, setStatus] = useState<AppStatus>('idle');
     const [results, setResults] = useState<ConversionResult[]>([]);
 
@@ -34,49 +29,26 @@ const App: React.FC = () => {
         setStatus('converting');
         setResults([]);
 
-        const newResults: ConversionResult[] = selectedFiles.map(pf => ({
+        const initialResults: ConversionResult[] = selectedFiles.map(pf => ({
             id: pf.id,
             presetName: pf.file.name.replace('.milk', ''),
         }));
-        setResults(newResults);
+        setResults(initialResults);
 
         for (const presetFile of selectedFiles) {
             const presetName = presetFile.file.name.replace('.milk', '');
             try {
-                const promises = [];
-                if (conversionOptions.glsl) {
-                    promises.push(generateGLSL(presetName).then(glsl => ({ type: 'glsl', data: glsl })));
-                }
-                if (conversionOptions.json) {
-                    promises.push(generateJSON(presetName, "AI Alchemist").then(json => ({ type: 'json', data: json })));
-                }
-
-                const settledPromises = await Promise.allSettled(promises);
-                
-                setResults(prev => prev.map(r => {
-                    if (r.id === presetFile.id) {
-                        const updatedResult = { ...r };
-                        settledPromises.forEach(p => {
-                            if (p.status === 'fulfilled') {
-                                const { type, data } = p.value;
-                                if (type === 'glsl') updatedResult.glsl = data;
-                                if (type === 'json') updatedResult.json = data;
-                            } else {
-                                updatedResult.error = `Error generating asset: ${p.reason}`;
-                            }
-                        });
-                        return updatedResult;
-                    }
-                    return r;
-                }));
-
+                const jsonContent = await generateAssets(presetName, "AI Alchemist");
+                setResults(prev => prev.map(r => 
+                    r.id === presetFile.id ? { ...r, json: jsonContent } : r
+                ));
             } catch (error) {
                 console.error(`Failed to convert ${presetName}:`, error);
                 setResults(prev => prev.map(r => r.id === presetFile.id ? { ...r, error: 'A critical error occurred during conversion.' } : r));
             }
         }
         setStatus('done');
-    }, [selectedFiles, conversionOptions]);
+    }, [selectedFiles]);
 
     const handleDownloadAll = useCallback(async () => {
         if (typeof JSZip === 'undefined') {
@@ -87,17 +59,8 @@ const App: React.FC = () => {
         const zip = new JSZip();
 
         for (const result of results) {
-            if (result.error) continue;
-
-            const folder = zip.folder(result.presetName);
-            if (!folder) continue;
-
-            if (result.glsl) {
-                folder.file(`${result.presetName}.frag`, result.glsl);
-            }
-            if (result.json) {
-                folder.file(`${result.presetName}.json`, result.json);
-            }
+            if (result.error || !result.json) continue;
+            zip.file(`${result.presetName}.json`, result.json);
         }
 
         zip.generateAsync({ type: 'blob' }).then(content => {
@@ -118,9 +81,9 @@ const App: React.FC = () => {
                 <Header />
 
                 <main className="mt-8 space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                        <div className="space-y-6 bg-slate-800/50 p-6 rounded-lg border border-slate-700">
-                             <h2 className="text-2xl font-display text-brand-cyan">1. Upload Presets</h2>
+                    <div className="grid grid-cols-1 gap-8 items-start">
+                        <div className="space-y-6 bg-slate-800/50 p-6 rounded-lg border border-slate-700 max-w-2xl mx-auto w-full">
+                             <h2 className="text-2xl font-display text-brand-cyan text-center">Upload Presets</h2>
                             <FileUpload onFilesSelected={handleFilesSelected} />
                             {selectedFiles.length > 0 && (
                                 <div className="text-slate-300">
@@ -130,10 +93,6 @@ const App: React.FC = () => {
                                     </ul>
                                 </div>
                             )}
-                        </div>
-                        <div className="space-y-6 bg-slate-800/50 p-6 rounded-lg border border-slate-700">
-                             <h2 className="text-2xl font-display text-brand-cyan">2. Choose Outputs</h2>
-                            <OptionsPanel options={conversionOptions} setOptions={setConversionOptions} />
                         </div>
                     </div>
                     
@@ -149,7 +108,7 @@ const App: React.FC = () => {
                         >
                             {status === 'converting' ? 'Summoning Visuals...' : 'Start Alchemy'}
                         </button>
-                         {status === 'done' && results.some(r => !r.error && (r.glsl || r.json)) && (
+                         {status === 'done' && results.some(r => !r.error && r.json) && (
                             <button
                                 onClick={handleDownloadAll}
                                 className="font-display text-xl font-bold px-8 py-3 rounded-md transition-all duration-300 ease-in-out

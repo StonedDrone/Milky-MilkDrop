@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { ConversionOptions, ConversionResult, PresetFile, AppStatus } from './types';
 import { generateGLSL, generateJSON, generateImagePreview } from './services/geminiService';
@@ -6,6 +5,8 @@ import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
 import { OptionsPanel } from './components/OptionsPanel';
 import { ResultsDisplay } from './components/ResultsDisplay';
+
+declare var JSZip: any;
 
 const App: React.FC = () => {
     const [selectedFiles, setSelectedFiles] = useState<PresetFile[]>([]);
@@ -87,6 +88,63 @@ const App: React.FC = () => {
         setStatus('done');
     }, [selectedFiles, conversionOptions]);
 
+    const handleDownloadAll = useCallback(async () => {
+        if (typeof JSZip === 'undefined') {
+            alert('Could not create zip file. JSZip library not found.');
+            return;
+        }
+
+        const zip = new JSZip();
+
+        const dataURLtoBlob = (dataurl: string): Blob | null => {
+            const arr = dataurl.split(',');
+            if (arr.length < 2) return null;
+            const mimeMatch = arr[0].match(/:(.*?);/);
+            if (!mimeMatch) return null;
+            const mime = mimeMatch[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], { type: mime });
+        };
+
+        for (const result of results) {
+            if (result.error) continue;
+
+            const folder = zip.folder(result.presetName);
+            if (!folder) continue;
+
+            if (result.glsl) {
+                folder.file(`${result.presetName}.frag`, result.glsl);
+            }
+            if (result.json) {
+                folder.file(`${result.presetName}.json`, result.json);
+            }
+            if (result.videoUrl) {
+                const blob = dataURLtoBlob(result.videoUrl);
+                if (blob) folder.file(`${result.presetName}_video.jpeg`, blob);
+            }
+            if (result.webpUrl) {
+                const blob = dataURLtoBlob(result.webpUrl);
+                if (blob) folder.file(`${result.presetName}_webp.jpeg`, blob);
+            }
+        }
+
+        zip.generateAsync({ type: 'blob' }).then(content => {
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'MilkDrop_Alchemy_Export.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    }, [results]);
+
     return (
         <div className="min-h-screen bg-slate-900 font-sans p-4 sm:p-6 md:p-8">
             <div className="max-w-7xl mx-auto">
@@ -112,7 +170,7 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     
-                    <div className="text-center">
+                    <div className="text-center flex justify-center items-center gap-4 flex-wrap">
                         <button
                             onClick={handleConvert}
                             disabled={selectedFiles.length === 0 || status === 'converting'}
@@ -124,6 +182,16 @@ const App: React.FC = () => {
                         >
                             {status === 'converting' ? 'Summoning Visuals...' : 'Start Alchemy'}
                         </button>
+                         {status === 'done' && results.some(r => !r.error && (r.glsl || r.json || r.videoUrl || r.webpUrl)) && (
+                            <button
+                                onClick={handleDownloadAll}
+                                className="font-display text-xl font-bold px-8 py-3 rounded-md transition-all duration-300 ease-in-out
+                                           bg-brand-cyan text-slate-900
+                                           hover:bg-white hover:shadow-lg hover:shadow-brand-cyan/50"
+                            >
+                                Download All (.zip)
+                            </button>
+                        )}
                     </div>
 
                     <ResultsDisplay status={status} results={results} />
